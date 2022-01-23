@@ -103,8 +103,8 @@ sealed class MeshBuilder : System.IDisposable
     #region Mesh objects
 
     Mesh _mesh;
-    GraphicsBuffer _vertexBuffer;
-    GraphicsBuffer _indexBuffer;
+    public GraphicsBuffer _vertexBuffer;
+    public GraphicsBuffer _indexBuffer;
 
     void AllocateMesh(int vertexCount)
     {

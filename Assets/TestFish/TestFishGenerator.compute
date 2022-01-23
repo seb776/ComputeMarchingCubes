@@ -1,0 +1,55 @@
+#pragma kernel TestFishGenerator
+
+#include "Packages/jp.keijiro.noiseshader/Shader/SimplexNoise3D.hlsl"
+
+uint3 Dims;
+float Scale;
+float Time;
+RWStructuredBuffer<float> Voxels;
+
+float2x2 r2d(float a) { float c = cos(a), s = sin(a); return float2x2(c, -s, s, c); }
+
+#define sat(a) saturate(a)
+float smin( float a, float b, float k ) { // Thanks IQ
+ float h = clamp( 0.5+0.5*(b-a)/k, 0., 1. );
+ return lerp( b, a, h ) - k*h*(1.0-h);
+}
+float2 fish(float3 p)
+{
+	float _time = 0.0f;
+    p*= .5;
+    //p.y += sin(p.x+_time*.25)*0.15-.1;
+    //p.xz *= r2d(sin(_time*2.+p.x*3.)*.3);
+    p -= float3(0.,-.3,0.);
+    p.xy *= lerp(1.,.985,sat(sin((p.x)*100.+_time*5.)*.5+.5));
+    float acc = 100.;
+    
+    acc = min(acc, length(p*float3(1.,2.,3.))-.25);
+    acc = smin(acc, length(p*float3(1.,2.,3.)-float3(-0.25,.0,0.))-.17, .1);
+    
+    float3 pail = p;
+    pail.yz = mul(r2d(.15*sign(pail.z*2.)*sin(_time)), pail.yz);
+    acc = min(acc, max(abs(pail.y-.06)-0.01, (length(pail*float3(3.,1.,1.)-float3(.1,0.,0.))-.25)));
+    
+    
+    float3 ptail = p*float3(1.,sign(p.y),1.);
+    ptail -=  float3(-.5,0.05,0.);
+    ptail.xy = mul(r2d(.7), ptail.xy);
+    ptail.z -= sat(10.*-ptail.x)*sin(ptail.y*200.)*.005;
+    
+    acc = smin(acc, max(abs(ptail.z)-0.01, length(ptail*float3(1.,2.,1.))-.125), .05);
+    float3 peye = p-float3(0.15,-0.03,0);
+    peye.z = abs(peye.z)-.05;
+    acc = min(acc, length(peye)-.03);
+   
+    
+    return float2(acc, 0.);
+}
+
+[numthreads(8, 8, 8)]
+void TestFishGenerator(uint3 id : SV_DispatchThreadID)
+{
+    float3 p = Scale * (id + 0.5 - Dims / 2);
+    float value = -fish(p);
+    Voxels[id.x + Dims.x * (id.y + Dims.y * id.z)] = value;
+}
